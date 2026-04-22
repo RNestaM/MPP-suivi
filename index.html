@@ -625,7 +625,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.5</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.7</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -760,18 +760,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="section-title">📊 Résultats de l'analyse</div>
     <div class="grid-4" id="materielStats" style="margin-bottom:20px;"></div>
     <div class="card">
-      <div class="card-title">🛒 Liste des achats recommandés</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:0;">🛒 Liste des achats recommandés</div>
+        <button class="btn btn-secondary btn-sm" onclick="ouvrirExport()">📤 Exporter message</button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>Matériel</th>
-              <th>Qty en zone 40-60%</th>
-              <th>Stock réserve</th>
-              <th>Limite max</th>
+              <th>Qty 40-60%</th>
+              <th>Réserve</th>
+              <th>Limite</th>
               <th>À acheter</th>
-              <th>Prix unitaire</th>
+              <th>Prix unit.</th>
               <th>Total</th>
+              <th></th>
             </tr>
           </thead>
           <tbody id="materielTable"></tbody>
@@ -873,6 +877,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- ==================== MODAL EXPORT ==================== -->
+<div class="modal-overlay" id="modalExport">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title">
+      📤 Message à exporter
+      <button class="modal-close" onclick="closeModal('modalExport')">✕</button>
+    </div>
+    <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez ce message et collez-le dans votre messagerie.</p>
+    <textarea id="exportTextarea" style="min-height:260px;font-family:monospace;font-size:12px;line-height:1.6;"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalExport')">Fermer</button>
+      <button class="btn btn-primary" onclick="copierExport()">📋 Copier</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ======================================================
@@ -1282,22 +1302,17 @@ function analyserMateriel() {
     const limite = STATE.stock[nom]?.limite || 0;
 
     // Calcul achats nécessaires
+    // Logique : les items en zone 40-60% vont puiser dans la réserve quand remplacés
+    // Stock après remplacement = reserve - qtyZone (peut être négatif)
+    // On doit racheter pour revenir à la limite (si définie) ou combler le manque
+    const stockApres = reserve - qtyZone;
     let aAcheter = 0;
-    if (reserve >= qtyZone) {
-      // Stock suffit — mais ne peut-on pas descendre sous la limite?
-      aAcheter = 0;
+    if (limite > 0) {
+      // Avec limite : on achète pour revenir à la limite, plafonné à la limite
+      aAcheter = Math.max(0, Math.min(limite, limite - stockApres));
     } else {
-      // Manque = qtyZone - reserve
-      const manque = qtyZone - reserve;
-      // On achète le manque mais sans dépasser la limite
-      if (limite > 0) {
-        // Stock après remplacement = reserve - qtyZone
-        // On veut revenir à la limite
-        const stockApres = Math.max(0, reserve - qtyZone);
-        aAcheter = Math.max(0, limite - stockApres);
-      } else {
-        aAcheter = manque;
-      }
+      // Sans limite : on achète juste ce qui manque pour ne pas descendre sous 0
+      aAcheter = Math.max(0, -stockApres);
     }
 
     const total = aAcheter * prix;
@@ -1310,15 +1325,20 @@ function analyserMateriel() {
 
   // Render
   const tbody = document.getElementById('materielTable');
-  tbody.innerHTML = resultats.map(r => `
-    <tr>
+  tbody.innerHTML = resultats.map((r, idx) => `
+    <tr id="mat-row-${idx}" ${r.aAcheter === 0 ? 'style="opacity:0.4;"' : ''}>
       <td><b>${r.nom}</b></td>
       <td><span class="badge badge-orange">${r.qtyZone}</span></td>
       <td>${r.reserve}</td>
       <td>${r.limite || '—'}</td>
-      <td>${r.aAcheter > 0 ? `<span class="badge badge-red">🛒 ${r.aAcheter}</span>` : `<span class="badge badge-green">✅ 0</span>`}</td>
+      <td>
+        ${r.aAcheter > 0
+          ? `<input type="number" min="0" max="${r.aAcheter}" value="${r.aAcheter}" style="width:60px;text-align:center;" onchange="updateQtyMat(${idx}, this.value)">`
+          : `<span class="badge badge-green">✅ 0</span>`}
+      </td>
       <td>${r.prix ? r.prix + ' €' : '—'}</td>
-      <td><b>${r.total ? r.total.toLocaleString('fr-FR') + ' €' : '—'}</b></td>
+      <td id="mat-total-${idx}"><b>${r.total ? r.total.toLocaleString('fr-FR') + ' €' : '—'}</b></td>
+      <td><button class="btn btn-danger btn-sm" onclick="supprimerLigneMat(${idx})" title="Supprimer">🗑️</button></td>
     </tr>
   `).join('');
 
@@ -1336,6 +1356,75 @@ function analyserMateriel() {
   document.getElementById('materielResultats').style.display = 'block';
   updateDashboard();
   toast('Analyse terminée !', 'success');
+}
+
+// ======================================================
+// MATÉRIEL — ÉDITION RÉSULTATS
+// ======================================================
+function updateQtyMat(idx, val) {
+  const r = STATE.lastMaterielAnalyse.resultats[idx];
+  if (!r) return;
+  r.aAcheter = Math.max(0, parseInt(val) || 0);
+  r.total = r.aAcheter * r.prix;
+  document.getElementById('mat-total-' + idx).innerHTML = '<b>' + (r.total ? r.total.toLocaleString('fr-FR') + ' €' : '—') + '</b>';
+  const row = document.getElementById('mat-row-' + idx);
+  if (row) row.style.opacity = r.aAcheter === 0 ? '0.4' : '1';
+  recalcBudget();
+}
+
+function supprimerLigneMat(idx) {
+  const r = STATE.lastMaterielAnalyse.resultats[idx];
+  if (!r) return;
+  r.aAcheter = 0;
+  r.total = 0;
+  const row = document.getElementById('mat-row-' + idx);
+  if (row) row.style.opacity = '0.4';
+  // Remove qty input
+  const cell = row.querySelector('input[type=number]');
+  if (cell) cell.parentElement.innerHTML = '<span class="badge badge-gray">Retiré</span>';
+  recalcBudget();
+}
+
+function recalcBudget() {
+  const total = STATE.lastMaterielAnalyse.resultats.reduce((s, r) => s + (r.total || 0), 0);
+  STATE.lastMaterielAnalyse.budgetTotal = total;
+  document.getElementById('materielBudgetTotal').textContent = total.toLocaleString('fr-FR') + ' €';
+  updateDashboard();
+}
+
+function ouvrirExport() {
+  const res = STATE.lastMaterielAnalyse?.resultats || [];
+  const aAcheter = res.filter(r => r.aAcheter > 0);
+  const budgetMat = aAcheter.reduce((s, r) => s + (r.total || 0), 0);
+
+  // Équipements critiques (>90%) depuis STATE
+  const eqCritiques = STATE.equipements.filter(e => e.usure >= 60);
+  const budgetEq = eqCritiques.reduce((s, e) => {
+    const prix = STATE.prixEquipement[e.type] || 0;
+    return s + prix;
+  }, 0);
+
+  let msg = 'Bonjour,\n\n';
+
+  if (aAcheter.length > 0) {
+    msg += `J'ai besoin d'un budget de ${budgetMat.toLocaleString('fr-FR')} € en matériel pour :\n`;
+    aAcheter.forEach(r => { msg += `* ${r.aAcheter} ${r.nom}\n`; });
+    msg += '\n';
+  }
+
+  if (eqCritiques.length > 0) {
+    msg += `J'ai besoin d'un budget de ${budgetEq.toLocaleString('fr-FR')} € en équipement pour :\n`;
+    eqCritiques.forEach(e => {
+      const prix = STATE.prixEquipement[e.type] || 0;
+      msg += `* 1 ${e.type} (usure ${e.usure}%)\n`;
+    });
+    msg += '\n';
+  }
+
+  msg += 'Merci,\nCordialement';
+
+  document.getElementById('exportTextarea').value = msg;
+  openModal('modalExport');
 }
 
 // ======================================================
@@ -1696,6 +1785,17 @@ function updateDashboard() {
       matEl.innerHTML = '<div class="alert-banner alert-info">✅ Aucun achat nécessaire lors de la dernière analyse</div>';
     }
   }
+}
+
+function copierExport() {
+  const ta = document.getElementById('exportTextarea');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    toast('Message copié dans le presse-papier !', 'success');
+  }).catch(() => {
+    document.execCommand('copy');
+    toast('Message copié !', 'success');
+  });
 }
 </script>
 </body>
