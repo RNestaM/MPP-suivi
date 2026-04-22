@@ -292,6 +292,25 @@ label {
 
 .form-group { margin-bottom: 14px; }
 
+.textarea-wrap { position: relative; }
+.textarea-clear {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--gris-clair);
+  border: none;
+  border-radius: 4px;
+  color: var(--gris-texte);
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 1;
+}
+.textarea-wrap:hover .textarea-clear { opacity: 1; }
+.textarea-clear:hover { background: var(--rouge); color: white; }
+
 /* ======= BUTTONS ======= */
 .btn {
   display: inline-flex;
@@ -625,7 +644,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.12</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.13</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -696,7 +715,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card-title"><span class="icon">📥</span> Import stock réel (réserve)</div>
       <p style="color:var(--gris-texte);font-size:12px;margin-bottom:10px;">Format : nom répété 2 fois + "Détails"</p>
       <div class="form-group">
-        <textarea id="stockRéelInput" style="min-height:90px;max-height:120px;" placeholder="ARICO&#10;ARICO&#10;Détails&#10;ARICO&#10;ARICO&#10;Détails"></textarea>
+        <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('stockRéelInput').value=''">✕ Vider</button><textarea id="stockRéelInput" style="min-height:90px;max-height:120px;" placeholder="ARICO&#10;ARICO&#10;Détails&#10;ARICO&#10;ARICO&#10;Détails"></textarea></div>
       </div>
       <button class="btn btn-primary" onclick="importStockReel()">📥 Importer</button>
       <div id="stockReelPreview" style="margin-top:8px;"></div>
@@ -706,7 +725,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card-title"><span class="icon">🏛️</span> Import limites autorisées</div>
       <p style="color:var(--gris-texte);font-size:12px;margin-bottom:10px;">Copiez-collez le tableau des limites depuis monpompier.com.</p>
       <div class="form-group">
-        <textarea id="stockLimiteInput" style="min-height:90px;max-height:120px;" placeholder="ARICOARICO	350 €	5	5			0€&#10;BâcheBâche	7 €	5	2			0€"></textarea>
+        <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('stockLimiteInput').value=''">✕ Vider</button><textarea id="stockLimiteInput" style="min-height:90px;max-height:120px;" placeholder="ARICOARICO	350 €	5	5			0€&#10;BâcheBâche	7 €	5	2			0€"></textarea></div>
       </div>
       <button class="btn btn-primary" onclick="importStockLimites()">📥 Importer</button>
       <div id="stockLimitesPreview" style="margin-top:8px;"></div>
@@ -751,7 +770,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       Copiez-collez la liste filtrée 40-60% depuis monpompier.com. Le site va calculer les achats nécessaires en tenant compte de votre stock.
     </p>
     <div class="form-group">
-      <textarea id="materielInput" placeholder="Division&#10;Division&#10;Détails&#10;Tuyau 45mm&#10;Tuyau 45mm&#10;Détails&#10;Tuyau 70mm&#10;Tuyau 70mm&#10;Détails"></textarea>
+      <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('materielInput').value=''">✕ Vider</button><textarea id="materielInput" placeholder="Division&#10;Division&#10;Détails&#10;Tuyau 45mm&#10;Tuyau 45mm&#10;Détails&#10;Tuyau 70mm&#10;Tuyau 70mm&#10;Détails"></textarea></div>
     </div>
     <button class="btn btn-primary" onclick="analyserMateriel()">🔍 Analyser</button>
   </div>
@@ -837,7 +856,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="form-group">
       <label>Données depuis monpompier.com *</label>
       <p style="color:var(--gris-texte);font-size:11px;margin-bottom:6px;">Le type, l'emplacement et l'usure sont extraits automatiquement.</p>
-      <textarea id="newEqData" style="min-height:130px;max-height:200px;" placeholder="Objet : Imprimante&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 119 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea>
+      <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('newEqData').value=''">✕ Vider</button><textarea id="newEqData" style="min-height:130px;max-height:200px;" placeholder="Objet : Imprimante&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 119 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalNewEq')">Annuler</button>
@@ -859,7 +878,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     </div>
     <div class="form-group">
       <label>Données depuis monpompier.com</label>
-      <textarea id="importEqData" placeholder="Objet : Compresseur&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 400 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea>
+      <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('importEqData').value=''">✕ Vider</button><textarea id="importEqData" placeholder="Objet : Compresseur&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 400 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalImportEq')">Annuler</button>
@@ -889,7 +908,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <button class="modal-close" onclick="closeModal('modalExport')">✕</button>
     </div>
     <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez ce message et collez-le dans votre messagerie.</p>
-    <textarea id="exportTextarea" style="min-height:260px;font-family:monospace;font-size:12px;line-height:1.6;"></textarea>
+    <div class="textarea-wrap"><button class="textarea-clear" onclick="document.getElementById('exportTextarea').value=''">✕ Vider</button><textarea id="exportTextarea" style="min-height:260px;font-family:monospace;font-size:12px;line-height:1.6;"></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalExport')">Fermer</button>
       <button class="btn btn-primary" onclick="copierExport()">📋 Copier</button>
