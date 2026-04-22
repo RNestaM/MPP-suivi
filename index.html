@@ -820,12 +820,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <button class="modal-close" onclick="closeModal('modalNewEq')">✕</button>
     </div>
     <div class="form-group">
-      <label>Nom personnalisé *</label>
-      <input type="text" id="newEqNom" placeholder="Ex: Compresseur Casernement A">
-    </div>
-    <div class="form-group">
       <label>Type d'équipement</label>
       <select id="newEqType"></select>
+    </div>
+    <div class="form-group">
+      <label>Numéro (optionnel)</label>
+      <input type="number" id="newEqNumero" placeholder="Laisser vide = automatique" min="1">
     </div>
     <div class="form-group">
       <label>Emplacement</label>
@@ -1318,13 +1318,18 @@ function openModalImportEq() {
 }
 
 async function creerEquipement() {
-  const nom = document.getElementById('newEqNom').value.trim();
   const type = document.getElementById('newEqType').value;
   const emplacement = document.getElementById('newEqEmplacement').value.trim();
-  if (!nom) return toast('Donnez un nom à cet équipement', 'error');
+  const numeroInput = document.getElementById('newEqNumero').value.trim();
+
+  // Calcul du prochain numéro auto pour ce type
+  const existants = STATE.equipements.filter(e => e.type === type).map(e => e.numero || 0);
+  const numero = numeroInput ? parseInt(numeroInput) : (existants.length ? Math.max(...existants) + 1 : 1);
+  const nom = `${type} #${numero}`;
 
   const eq = {
     nom,
+    numero,
     type,
     emplacement,
     usure: 0,
