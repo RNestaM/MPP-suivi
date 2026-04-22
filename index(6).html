@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonPompier — Suivi Matériel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // =============================================
+  // 🔥 FIREBASE CONFIG — À REMPLACER PAR LA TIENNE
+  // =============================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyB71F2vjYxgt_0x0knOwKicGiyfDZ_26zc",
+    authDomain: "monpompier-suivi.firebaseapp.com",
+    projectId: "monpompier-suivi",
+    storageBucket: "monpompier-suivi.firebasestorage.app",
+    messagingSenderId: "955180920379",
+    appId: "1:955180920379:web:6f56cea45a51ef12ecb61e"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.db = db;
+  window.firestore = { collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp };
+  window.firebaseReady = true;
+  document.dispatchEvent(new Event('firebaseReady'));
+</script>
+
+<style>
+:root {
+  --rouge: #C0392B;
+  --rouge-vif: #E74C3C;
+  --rouge-sombre: #922B21;
+  --noir: #0A0A0A;
+  --gris-fonce: #1A1A1A;
+  --gris-moyen: #2D2D2D;
+  --gris-clair: #3D3D3D;
+  --gris-texte: #8A8A8A;
+  --blanc: #F5F0EB;
+  --blanc-pur: #FFFFFF;
+  --or: #D4A017;
+  --vert: #27AE60;
+  --orange: #E67E22;
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--noir);
+  color: var(--blanc);
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ======= HEADER ======= */
+.header {
+  background: var(--gris-fonce);
+  border-bottom: 3px solid var(--rouge);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--rouge);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.logo-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: var(--blanc);
+}
+
+.logo-text span { color: var(--rouge-vif); }
+
+.firebase-status {
+  font-size: 11px;
+  color: var(--gris-texte);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gris-texte);
+  transition: background var(--transition);
+}
+.status-dot.connected { background: var(--vert); }
+.status-dot.error { background: var(--rouge-vif); }
+
+/* ======= NAV ======= */
+nav {
+  background: var(--gris-fonce);
+  border-bottom: 1px solid var(--gris-moyen);
+  display: flex;
+  padding: 0 24px;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.nav-btn {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gris-texte);
+  background: none;
+  border: none;
+  padding: 14px 18px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.nav-btn:hover { color: var(--blanc); }
+.nav-btn.active { color: var(--rouge-vif); border-bottom-color: var(--rouge-vif); }
+
+/* ======= MAIN ======= */
+main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ======= CARDS ======= */
+.card {
+  background: var(--gris-fonce);
+  border: 1px solid var(--gris-moyen);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: var(--blanc);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon { font-size: 16px; }
+
+/* ======= GRID ======= */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+}
+
+/* ======= STAT BOXES ======= */
+.stat-box {
+  background: var(--gris-moyen);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid var(--rouge);
+}
+
+.stat-box.green { border-left-color: var(--vert); }
+.stat-box.orange { border-left-color: var(--orange); }
+.stat-box.gold { border-left-color: var(--or); }
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--gris-texte);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px;
+  color: var(--blanc);
+  line-height: 1;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--gris-texte);
+  margin-top: 4px;
+}
+
+/* ======= USURE BAR ======= */
+.usure-bar {
+  height: 8px;
+  background: var(--gris-clair);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.usure-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.usure-fill.low { background: var(--vert); }
+.usure-fill.med { background: var(--orange); }
+.usure-fill.high { background: var(--rouge-vif); }
+.usure-fill.critical { background: var(--rouge); animation: pulse-red 1s infinite; }
+
+@keyframes pulse-red {
+  0%,100% { opacity:1; }
+  50% { opacity:0.6; }
+}
+
+/* ======= BADGES ======= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-red { background: rgba(192,57,43,0.25); color: #E74C3C; border: 1px solid rgba(231,76,60,0.4); }
+.badge-orange { background: rgba(230,126,34,0.25); color: #E67E22; border: 1px solid rgba(230,126,34,0.4); }
+.badge-green { background: rgba(39,174,96,0.25); color: #27AE60; border: 1px solid rgba(39,174,96,0.4); }
+.badge-gray { background: rgba(138,138,138,0.15); color: #8A8A8A; border: 1px solid rgba(138,138,138,0.3); }
+
+/* ======= INPUTS ======= */
+input, select, textarea {
+  background: var(--gris-moyen);
+  border: 1px solid var(--gris-clair);
+  border-radius: 6px;
+  color: var(--blanc);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--rouge);
+}
+
+textarea { resize: vertical; min-height: 120px; }
+
+label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--gris-texte);
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+
+.form-group { margin-bottom: 14px; }
+
+/* ======= BUTTONS ======= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 6px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-primary { background: var(--rouge); color: white; }
+.btn-primary:hover { background: var(--rouge-vif); transform: translateY(-1px); }
+.btn-secondary { background: var(--gris-moyen); color: var(--blanc); border: 1px solid var(--gris-clair); }
+.btn-secondary:hover { border-color: var(--rouge); color: var(--rouge-vif); }
+.btn-danger { background: rgba(192,57,43,0.2); color: var(--rouge-vif); border: 1px solid rgba(192,57,43,0.4); }
+.btn-danger:hover { background: var(--rouge); color: white; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ======= TABLE ======= */
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead tr {
+  border-bottom: 2px solid var(--rouge);
+}
+
+th {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--gris-texte);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gris-moyen);
+  vertical-align: middle;
+}
+
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ======= ALERT BANNER ======= */
+.alert-banner {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.alert-danger { background: rgba(192,57,43,0.15); border: 1px solid rgba(192,57,43,0.4); color: #E74C3C; }
+.alert-warning { background: rgba(230,126,34,0.15); border: 1px solid rgba(230,126,34,0.4); color: #E67E22; }
+.alert-info { background: rgba(39,174,96,0.12); border: 1px solid rgba(39,174,96,0.3); color: #27AE60; }
+
+/* ======= SECTION TITLE ======= */
+.section-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--blanc);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--rouge), transparent);
+}
+
+/* ======= EQUIPMENT CARDS ======= */
+.eq-card {
+  background: var(--gris-fonce);
+  border: 1px solid var(--gris-moyen);
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color var(--transition);
+}
+
+.eq-card:hover { border-color: var(--gris-clair); }
+.eq-card.alert-eq { border-left: 3px solid var(--rouge-vif); }
+
+.eq-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.eq-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.eq-meta {
+  font-size: 11px;
+  color: var(--gris-texte);
+  margin-top: 2px;
+}
+
+.eq-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.eq-stat-item {
+  background: var(--gris-moyen);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.eq-stat-label { color: var(--gris-texte); margin-bottom: 2px; }
+.eq-stat-val { font-weight: 600; color: var(--blanc); }
+
+.eq-prediction {
+  margin-top: 10px;
+  padding: 8px;
+  background: rgba(192,57,43,0.1);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--rouge-vif);
+  border: 1px solid rgba(192,57,43,0.2);
+}
+
+.eq-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* ======= MODAL ======= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--gris-fonce);
+  border: 1px solid var(--gris-moyen);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--gris-texte);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.modal-close:hover { color: var(--rouge-vif); }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* ======= MINI CHART ======= */
+.mini-chart {
+  height: 60px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.chart-bar {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  transition: height 0.3s ease;
+  position: relative;
+}
+
+.chart-bar:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gris-clair);
+  color: var(--blanc);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  margin-bottom: 3px;
+}
+
+/* ======= LOADING ======= */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--gris-texte);
+  gap: 10px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gris-clair);
+  border-top-color: var(--rouge);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ======= TOAST ======= */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: var(--gris-moyen);
+  border: 1px solid var(--gris-clair);
+  border-left: 4px solid var(--rouge);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--blanc);
+  max-width: 320px;
+  animation: slide-in 0.3s ease;
+}
+
+.toast.success { border-left-color: var(--vert); }
+.toast.error { border-left-color: var(--rouge-vif); }
+
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ======= EMPTY STATE ======= */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--gris-texte);
+}
+
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; }
+
+/* ======= SEPARATOR ======= */
+.sep {
+  height: 1px;
+  background: var(--gris-moyen);
+  margin: 20px 0;
+}
+
+/* ======= PRICE TAG ======= */
+.price-tag {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  color: var(--or);
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--gris-fonce); }
+::-webkit-scrollbar-thumb { background: var(--gris-clair); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--rouge); }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-icon">🚒</div>
+    <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
+  </div>
+  <div class="firebase-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connexion...</span>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="showPage('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showPage('stock')">📦 Stock</button>
+  <button class="nav-btn" onclick="showPage('materiel')">🧰 Matériel</button>
+  <button class="nav-btn" onclick="showPage('equipement')">🪖 Équipement</button>
+  <button class="nav-btn" onclick="showPage('config')">⚙️ Config</button>
+</nav>
+
+<main>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div id="page-dashboard" class="page active">
+  <div class="section-title">🏠 Tableau de bord</div>
+
+  <div class="grid-4" id="dashStats">
+    <div class="stat-box">
+      <div class="stat-label">Équipements suivis</div>
+      <div class="stat-value" id="statEqTotal">—</div>
+    </div>
+    <div class="stat-box orange">
+      <div class="stat-label">Palier achat (40-60%)</div>
+      <div class="stat-value" id="statEqAchat">—</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Palier réforme (>90%)</div>
+      <div class="stat-value" id="statEqReforme">—</div>
+    </div>
+    <div class="stat-box gold">
+      <div class="stat-label">Budget matériel estimé</div>
+      <div class="stat-value" id="statBudget">—</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">⚠️ Équipements critiques (>90%)</div>
+      <div id="dashEqCritique">
+        <div class="empty-state"><div class="icon">✅</div><p>Aucun équipement critique</p></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">🛒 Matériel à prévoir (dernière analyse)</div>
+      <div id="dashMaterielAchat">
+        <div class="empty-state"><div class="icon">📋</div><p>Lancez une analyse matériel</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📈 Équipements proches du palier</div>
+    <div id="dashEqWarning">
+      <div class="empty-state"><div class="icon">🎯</div><p>Aucun équipement en zone d'alerte (40-90%)</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== STOCK ==================== -->
+<div id="page-stock" class="page">
+  <div class="section-title">📦 Gestion du stock</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="icon">📥</span> Import stock réel (réserve)</div>
+      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez-collez la liste depuis monpompier.com. Format : nom répété 2 fois + "Détails"</p>
+      <div class="form-group">
+        <textarea id="stockRéelInput" placeholder="ARICO&#10;ARICO&#10;Détails&#10;ARICO&#10;ARICO&#10;Détails&#10;Extincteur à poudre (9kg)&#10;Extincteur à poudre (9kg)&#10;Détails"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="importStockReel()">📥 Importer le stock réel</button>
+      <div id="stockReelPreview" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🏛️</span> Import limites autorisées</div>
+      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez-collez le tableau des limites depuis monpompier.com.</p>
+      <div class="form-group">
+        <textarea id="stockLimiteInput" placeholder="Produit	Prix	Stock autorisé par le groupement centre	Stock voulu	Mon stock	A commander&#10;ARICOARICO	350 €	5	5			0€&#10;BâcheBâche	7 €	5	2			0€"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="importStockLimites()">📥 Importer les limites</button>
+      <div id="stockLimitesPreview" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 Stock actuel</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Matériel</th>
+            <th>Stock réserve</th>
+            <th>Limite max (neuf)</th>
+            <th>Prix unitaire</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody id="stockTable">
+          <tr><td colspan="5"><div class="loading"><div class="spinner"></div> Chargement...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MATERIEL ==================== -->
+<div id="page-materiel" class="page">
+  <div class="section-title">🧰 Analyse matériel</div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">📋</span> Import liste 40-60% (palier achat)</div>
+    <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">
+      Copiez-collez la liste filtrée 40-60% depuis monpompier.com. Le site va calculer les achats nécessaires en tenant compte de votre stock.
+    </p>
+    <div class="form-group">
+      <textarea id="materielInput" placeholder="Division&#10;Division&#10;Détails&#10;Tuyau 45mm&#10;Tuyau 45mm&#10;Détails&#10;Tuyau 70mm&#10;Tuyau 70mm&#10;Détails"></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="analyserMateriel()">🔍 Analyser</button>
+  </div>
+
+  <div id="materielResultats" style="display:none;">
+    <div class="section-title">📊 Résultats de l'analyse</div>
+    <div class="grid-4" id="materielStats" style="margin-bottom:20px;"></div>
+    <div class="card">
+      <div class="card-title">🛒 Liste des achats recommandés</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Matériel</th>
+              <th>Qty en zone 40-60%</th>
+              <th>Stock réserve</th>
+              <th>Limite max</th>
+              <th>À acheter</th>
+              <th>Prix unitaire</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="materielTable"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px;text-align:right;">
+        <div class="stat-label">Budget total estimé</div>
+        <div class="price-tag" id="materielBudgetTotal">0 €</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== EQUIPEMENT ==================== -->
+<div id="page-equipement" class="page">
+  <div class="section-title">🪖 Suivi équipement</div>
+
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="openModalNewEq()">➕ Nouvel équipement</button>
+    <button class="btn btn-secondary" onclick="openModalImportEq()">📥 Importer données</button>
+  </div>
+
+  <div id="equipementGrid" class="grid-3">
+    <div class="loading"><div class="spinner"></div> Chargement...</div>
+  </div>
+</div>
+
+<!-- ==================== CONFIG ==================== -->
+<div id="page-config" class="page">
+  <div class="section-title">⚙️ Configuration</div>
+
+  <div class="card">
+    <div class="card-title">🧰 Prix du matériel</div>
+    <p style="color:var(--gris-texte);font-size:12px;margin-bottom:16px;">Modifiez les prix unitaires du catalogue matériel.</p>
+    <div id="configMaterielList"></div>
+    <button class="btn btn-primary" onclick="sauvegarderPrixMateriel()" style="margin-top:12px;">💾 Sauvegarder</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🪖 Prix des équipements</div>
+    <p style="color:var(--gris-texte);font-size:12px;margin-bottom:16px;">Modifiez les prix unitaires du catalogue équipement.</p>
+    <div id="configEquipementList"></div>
+    <button class="btn btn-primary" onclick="sauvegarderPrixEquipement()" style="margin-top:12px;">💾 Sauvegarder</button>
+  </div>
+</div>
+
+</main>
+
+<!-- ==================== MODAL NOUVEL ÉQUIPEMENT ==================== -->
+<div class="modal-overlay" id="modalNewEq">
+  <div class="modal">
+    <div class="modal-title">
+      ➕ Nouvel équipement
+      <button class="modal-close" onclick="closeModal('modalNewEq')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nom personnalisé *</label>
+      <input type="text" id="newEqNom" placeholder="Ex: Compresseur Casernement A">
+    </div>
+    <div class="form-group">
+      <label>Type d'équipement</label>
+      <select id="newEqType"></select>
+    </div>
+    <div class="form-group">
+      <label>Emplacement</label>
+      <input type="text" id="newEqEmplacement" placeholder="Ex: Casernement">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalNewEq')">Annuler</button>
+      <button class="btn btn-primary" onclick="creerEquipement()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL IMPORT DONNÉES ÉQUIPEMENT ==================== -->
+<div class="modal-overlay" id="modalImportEq">
+  <div class="modal">
+    <div class="modal-title">
+      📥 Importer données équipement
+      <button class="modal-close" onclick="closeModal('modalImportEq')">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Équipement cible *</label>
+      <select id="importEqSelect"></select>
+    </div>
+    <div class="form-group">
+      <label>Données depuis monpompier.com</label>
+      <textarea id="importEqData" placeholder="Objet : Compresseur&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 400 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modalImportEq')">Annuler</button>
+      <button class="btn btn-primary" onclick="importerDonneesEq()">Importer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MODAL DÉTAIL ÉQUIPEMENT ==================== -->
+<div class="modal-overlay" id="modalDetailEq">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title">
+      📊 <span id="detailEqTitre">Détail équipement</span>
+      <button class="modal-close" onclick="closeModal('modalDetailEq')">✕</button>
+    </div>
+    <div id="detailEqContent"></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ======================================================
+// DONNÉES PAR DÉFAUT
+// ======================================================
+const MATERIEL_DEFAUT = {
+  "ARICF": 400, "ARICO": 350, "Aspirateur à eau": 110, "Aspiraux 110mm": 67,
+  "Bâche": 7, "Balai": 10, "Balise lumineuse": 25, "Batte à feu": 78,
+  "Boite d ampoule": 28, "Bottes de protection": 20, "Bouée de sauvetage": 120,
+  "Burineur": 250, "Cage pour Animal": 36, "Cagoule de fuite": 125,
+  "Caisse à outils": 90, "Caisse de bois de calage": 70, "Caisse de menuisier": 90,
+  "Cale de roue": 15, "Cale en escalier": 30, "Caméra thermique": 3500,
+  "Cartouche Filtrante": 20, "Ceinture de Charpentier": 30, "Chalumeau": 400,
+  "Chevrons": 15, "Cisaille": 3000, "Clé pour coffret de gaz": 36,
+  "Clé de barrage": 215, "Clé de poteau": 56, "Clés d ascenseur": 100,
+  "Coffret de protections airbag": 150, "Collecteur d alimentation": 340,
+  "Collier d amarrage": 15, "Colonne prise d'eau": 440, "Commande": 196,
+  "Cônes de lubeck": 12, "Corde de 30m": 65, "Coude antirecul": 195,
+  "Coude Keyser": 150, "Coupe pédale": 596, "Coupe-boulon": 33,
+  "Coussin de levage": 559, "Crépine": 98, "Découpe pare-brise": 35,
+  "Détecteur multi-gaz": 340, "Division": 360, "E/R Portatif": 152,
+  "Écarteur": 3345, "Échelle à Coulisse": 179, "Echelle à crochets": 501,
+  "Elingues": 101, "Escabeau": 111, "Étais de stabilisation": 99,
+  "Extincteur à poudre (9kg)": 58, "Extincteur CO2": 86, "Filet de Capture": 137,
+  "Flotteur": 70, "Gaffe": 15, "Gilet de sauvetage": 55,
+  "Gilet Haute Visibilité": 13, "Groupe électrogène": 89, "Hache": 48,
+  "Harnais": 64, "Hérisson": 29, "Hooligna tool": 295, "Huit descendeur": 11,
+  "Lampe flash": 55, "Lance à mousse": 115, "Lance canon": 230,
+  "Lance de 22 mm": 49, "Lance queue de paon": 120, "LDV 45mm": 125,
+  "Ligne guide": 200, "Lot de levage": 95, "Lot de matériel d ancrage": 110,
+  "Lots de Protection parties coupantes": 110, "LSPCC": 287,
+  "Madrier de Franchissement": 415, "Maillon DELTA": 4,
+  "Marteau de Charpentier": 47, "Masque araignée": 300, "Masse": 56,
+  "Mousqueton symétrique": 20, "Outil de forcement et de déblais": 28,
+  "Pelle": 12, "Pelle à suie": 8, "Perche capture animaux": 178,
+  "Pince capture animaux": 228, "Pioche": 27, "Planches": 10,
+  "Plateforme de sauvetage": 470, "Poudreur": 47, "Poulie": 20,
+  "Projecteur avec Trépied": 25, "Projecteur portable": 41, "Pulvérisateur": 44,
+  "Raclette": 12, "Radio ATEX": 200, "Réduction 100/65": 65, "Réduction 65/40": 40,
+  "Rouleau de Rubalise": 5, "Sac d absorbant": 8, "sangles d arrimage": 12,
+  "Sangles de sauvetage": 8, "Scie à bûches": 19, "Scie sabre électrique": 199,
+  "Seau pompe": 75, "Tableau Blanc": 62, "Tableau de contrôle": 65, "Tente": 500,
+  "Tenue anti-coupures": 202, "Tenue d approche": 700, "Tenue de protection NDG": 310,
+  "Tenue type 5": 70, "Triangle": 52, "Triangle d'évacuation": 98,
+  "Tronçonneuse": 372, "Tronçonneuse à disque": 700, "Tuyau 110mm": 71,
+  "Tuyau 22mm": 31, "Tuyau 45mm": 45, "Tuyau 70mm": 62,
+  "Ventilateur électrique": 605, "Vide Cave": 74,
+  "Antenne déportée": 624, "Babyline": 2200, "Barquette d évacuation FERNO": 582,
+  "Barrage Flottant": 225, "Bidon de récupération": 180,
+  "Bouteille+détendeur+flexible": 890, "Brancard pliable": 200,
+  "Brique de plomb": 1000, "Ceinture de lestage": 75, "Chaussons": 10,
+  "Combinaison de plongée": 240, "Contaminamètre LB122": 1500,
+  "Débitmètres Radiagem 2000": 2500, "Dosimètre DMC 2000": 250,
+  "Douche de décontamination": 3740, "Etais métalliques": 20,
+  "Flacon de prélèvement": 156, "Gants de plongée": 20, "Gilet gonflable": 180,
+  "Kit prélévement": 750, "Lance monitor": 702, "Mallette d analyse RCH": 1850,
+  "Masque de plongée+tuba": 70, "Matériel d écoute et vidéo électronique": 2200,
+  "Motopompe d épuisement": 200, "Nettoyeur Haute Pression": 128,
+  "Obturateurs": 55, "Ordinateur de plongée": 300, "Paire de gants BUTYL": 40,
+  "Palmes": 135, "Parachute de palier": 65, "Plaque d appui": 75,
+  "Poignard": 50, "Polyradiamètre portable": 2500, "Pompe ATEX": 200,
+  "Pompe électrique de transvasement": 867, "Pyromètre laser ATEX": 353,
+  "Sac de prélèvement": 350, "Seau TRIVOREX": 380, "Spectromètre portable": 5750,
+  "Table de plongée": 15, "Tente PMA": 800, "Tenue type 1": 30,
+  "Tenue type 3": 200, "Vanne de pied d échelle": 500
+};
+
+const EQUIPEMENT_DEFAUT = {
+  "Banc de musculation": 350, "Chaîne HI-FI": 150, "Cirage": 12,
+  "Compresseur": 400, "Lit": 400, "Machine à laver": 370,
+  "Pistolet de gonflage avec manomètre": 25, "Polish": 21, "Tapis de course": 500,
+  "Bureau": 389, "Imprimante": 119, "Kit de désinfection": 225,
+  "Kit entretien locaux": 75, "Kit entretien véhicules": 80,
+  "Ordinateur de bureau": 559, "Produit d'entretien 5L": 19
+};
+
+// ======================================================
+// STATE
+// ======================================================
+let STATE = {
+  prixMateriel: { ...MATERIEL_DEFAUT },
+  prixEquipement: { ...EQUIPEMENT_DEFAUT },
+  stock: {},       // { nom: { reserve: N, limite: N } }
+  equipements: [], // tableau de fiches équipement
+  lastMaterielAnalyse: null
+};
+
+let dbReady = false;
+
+// ======================================================
+// FIREBASE HELPERS
+// ======================================================
+function waitForFirebase() {
+  return new Promise(resolve => {
+    if (window.firebaseReady) return resolve();
+    document.addEventListener('firebaseReady', resolve, { once: true });
+  });
+}
+
+async function dbSet(path, data) {
+  const { doc, setDoc } = window.firestore;
+  await setDoc(doc(window.db, ...path.split('/')), data, { merge: true });
+}
+
+async function dbGet(path) {
+  const { doc, getDoc } = window.firestore;
+  const snap = await getDoc(doc(window.db, ...path.split('/')));
+  return snap.exists() ? snap.data() : null;
+}
+
+async function dbGetAll(col) {
+  const { collection, getDocs } = window.firestore;
+  const snap = await getDocs(collection(window.db, col));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function dbAdd(col, data) {
+  const { collection, addDoc, serverTimestamp } = window.firestore;
+  const ref = await addDoc(collection(window.db, col), { ...data, createdAt: serverTimestamp() });
+  return ref.id;
+}
+
+async function dbUpdate(col, id, data) {
+  const { doc, updateDoc } = window.firestore;
+  await updateDoc(doc(window.db, col, id), data);
+}
+
+async function dbDelete(col, id) {
+  const { doc, deleteDoc } = window.firestore;
+  await deleteDoc(doc(window.db, col, id));
+}
+
+// ======================================================
+// INIT
+// ======================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await waitForFirebase();
+    dbReady = true;
+    setStatus('connected', 'Firebase connecté');
+    await chargerToutesLesDonnees();
+  } catch(e) {
+    setStatus('error', 'Erreur Firebase');
+    toast('Erreur de connexion Firebase. Vérifiez la configuration.', 'error');
+    // Mode hors ligne — charger les données par défaut
+    renderConfig();
+    renderStockTable();
+    renderEquipements();
+    updateDashboard();
+  }
+});
+
+function setStatus(type, text) {
+  document.getElementById('statusDot').className = 'status-dot ' + type;
+  document.getElementById('statusText').textContent = text;
+}
+
+async function chargerToutesLesDonnees() {
+  // Prix
+  const prix = await dbGet('config/prix');
+  if (prix) {
+    if (prix.materiel) STATE.prixMateriel = prix.materiel;
+    if (prix.equipement) STATE.prixEquipement = prix.equipement;
+  }
+
+  // Stock
+  const stockData = await dbGet('config/stock');
+  if (stockData) STATE.stock = stockData.items || {};
+
+  // Équipements
+  STATE.equipements = await dbGetAll('equipements');
+
+  renderConfig();
+  renderStockTable();
+  renderEquipements();
+  updateDashboard();
+}
+
+// ======================================================
+// NAVIGATION
+// ======================================================
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ======================================================
+// TOAST
+// ======================================================
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type === 'success' ? 'success' : type === 'error' ? 'error' : '');
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ======================================================
+// MODAL
+// ======================================================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ======================================================
+// PARSERS
+// ======================================================
+function parseListeSimple(texte) {
+  // Format: nom\nnom\nDétails
+  const lignes = texte.split('\n').map(l => l.trim()).filter(l => l);
+  const items = {};
+  let i = 0;
+  while (i < lignes.length) {
+    const l = lignes[i];
+    if (l.toLowerCase() === 'détails' || l.toLowerCase() === 'details') { i++; continue; }
+    // Vérifier si la ligne suivante est la même (doublon)
+    if (i + 1 < lignes.length && lignes[i+1] === l) {
+      items[l] = (items[l] || 0) + 1;
+      i += 2;
+      // Sauter "Détails"
+      if (i < lignes.length && lignes[i].toLowerCase().startsWith('détail')) i++;
+    } else {
+      items[l] = (items[l] || 0) + 1;
+      i++;
+    }
+  }
+  return items;
+}
+
+function parseLimites(texte) {
+  // Format tabulé: NomNom\tPrix\tAutorisé\tVoulu\t...
+  const lignes = texte.split('\n').map(l => l.trim()).filter(l => l);
+  const result = {};
+  for (const ligne of lignes) {
+    // Ignorer l'en-tête
+    if (ligne.startsWith('Produit') || ligne.startsWith('Non modifiable')) continue;
+    const cols = ligne.split('\t');
+    if (cols.length < 3) continue;
+    // Colonne 0: NomNom (doublon collé)
+    let nom = cols[0].trim();
+    // Dédupliquer le nom (ex: "ARICOARICO" -> "ARICO")
+    nom = deduplicateNom(nom);
+    // Colonne 2: stock autorisé, colonne 3: stock voulu (on prend le plus petit = limite réelle)
+    const autorise = parseInt(cols[2]) || 0;
+    const voulu = parseInt(cols[3]) || 0;
+    const limite = Math.min(autorise, voulu || autorise);
+    result[nom] = { limite };
+  }
+  return result;
+}
+
+function deduplicateNom(nom) {
+  // "ARICOARICO" -> "ARICO", "BâcheBâche" -> "Bâche"
+  const mid = Math.floor(nom.length / 2);
+  const half1 = nom.slice(0, mid);
+  const half2 = nom.slice(mid);
+  if (half1 === half2) return half1;
+  // Essai avec différentes longueurs
+  for (let len = 1; len <= nom.length / 2; len++) {
+    const part = nom.slice(0, len);
+    if (nom.slice(len) === part) return part;
+  }
+  return nom;
+}
+
+function parseFicheEquipement(texte) {
+  const result = {};
+  const lignes = texte.split('\n').map(l => l.trim()).filter(l => l);
+  for (const ligne of lignes) {
+    const sep = ligne.indexOf(':');
+    if (sep === -1) continue;
+    const clé = ligne.slice(0, sep).trim().toLowerCase();
+    const val = ligne.slice(sep + 1).trim();
+    if (clé === 'objet') result.objet = val;
+    else if (clé === 'etat' || clé === 'état') result.etat = val;
+    else if (clé === 'emplacement') result.emplacement = val;
+    else if (clé === 'prix catalogue') result.prix = parseInt(val.replace(/[^0-9]/g, '')) || 0;
+    else if (clé === 'usure') result.usure = parseInt(val) || 0;
+    else if (clé === "nombre d'entretiens") {
+      const m = val.match(/(\d+)\s*\/\s*(\d+)/);
+      if (m) { result.entretiens = parseInt(m[1]); result.entretiensMax = parseInt(m[2]); }
+    } else if (clé === "passages à l'atelier" || clé === "passages a l'atelier") {
+      const m = val.match(/(\d+)\s*\/\s*(\d+)/);
+      if (m) { result.atelier = parseInt(m[1]); result.atelierMax = parseInt(m[2]); }
+    }
+  }
+  return result;
+}
+
+// ======================================================
+// STOCK
+// ======================================================
+async function importStockReel() {
+  const texte = document.getElementById('stockRéelInput').value.trim();
+  if (!texte) return toast('Collez des données à importer', 'error');
+  const items = parseListeSimple(texte);
+  // Fusionner avec l'état actuel
+  for (const [nom, qty] of Object.entries(items)) {
+    if (!STATE.stock[nom]) STATE.stock[nom] = { reserve: 0, limite: 0 };
+    STATE.stock[nom].reserve = qty;
+  }
+  await sauvegarderStock();
+  renderStockTable();
+  const total = Object.values(items).reduce((a, b) => a + b, 0);
+  const preview = Object.entries(items).map(([n, q]) => `<span style="color:var(--blanc)">${n}</span>: <b>${q}</b>`).join(' · ');
+  document.getElementById('stockReelPreview').innerHTML = `<div class="alert-banner alert-info">✅ ${Object.keys(items).length} types importés (${total} unités) — ${preview}</div>`;
+  toast(`Stock réel importé : ${Object.keys(items).length} types`, 'success');
+}
+
+async function importStockLimites() {
+  const texte = document.getElementById('stockLimiteInput').value.trim();
+  if (!texte) return toast('Collez des données à importer', 'error');
+  const limites = parseLimites(texte);
+  for (const [nom, data] of Object.entries(limites)) {
+    if (!STATE.stock[nom]) STATE.stock[nom] = { reserve: 0, limite: 0 };
+    STATE.stock[nom].limite = data.limite;
+  }
+  await sauvegarderStock();
+  renderStockTable();
+  const preview = Object.entries(limites).map(([n, d]) => `<span style="color:var(--blanc)">${n}</span>: max <b>${d.limite}</b>`).join(' · ');
+  document.getElementById('stockLimitesPreview').innerHTML = `<div class="alert-banner alert-info">✅ ${Object.keys(limites).length} limites importées — ${preview}</div>`;
+  toast(`Limites importées : ${Object.keys(limites).length} articles`, 'success');
+}
+
+async function sauvegarderStock() {
+  if (!dbReady) return;
+  await dbSet('config/stock', { items: STATE.stock });
+}
+
+function renderStockTable() {
+  const tbody = document.getElementById('stockTable');
+  const entries = Object.entries(STATE.stock).sort((a, b) => a[0].localeCompare(b[0]));
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">📦</div><p>Aucun stock enregistré</p></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map(([nom, data]) => {
+    const prix = STATE.prixMateriel[nom] || STATE.prixEquipement[nom] || 0;
+    const reserve = data.reserve || 0;
+    const limite = data.limite || 0;
+    let badge = '';
+    if (reserve === 0) badge = '<span class="badge badge-red">Vide</span>';
+    else if (limite > 0 && reserve >= limite) badge = '<span class="badge badge-green">OK</span>';
+    else if (limite > 0 && reserve < limite) badge = '<span class="badge badge-orange">Bas</span>';
+    else badge = '<span class="badge badge-gray">—</span>';
+    return `<tr>
+      <td><b>${nom}</b></td>
+      <td>${reserve}</td>
+      <td>${limite || '—'}</td>
+      <td>${prix ? prix + ' €' : '—'}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ======================================================
+// MATÉRIEL — ANALYSE
+// ======================================================
+function analyserMateriel() {
+  const texte = document.getElementById('materielInput').value.trim();
+  if (!texte) return toast('Collez une liste à analyser', 'error');
+  const items = parseListeSimple(texte);
+  const resultats = [];
+  let budgetTotal = 0;
+
+  for (const [nom, qtyZone] of Object.entries(items)) {
+    const prix = STATE.prixMateriel[nom] || 0;
+    const reserve = STATE.stock[nom]?.reserve || 0;
+    const limite = STATE.stock[nom]?.limite || 0;
+
+    // Calcul achats nécessaires
+    let aAcheter = 0;
+    if (reserve >= qtyZone) {
+      // Stock suffit — mais ne peut-on pas descendre sous la limite?
+      aAcheter = 0;
+    } else {
+      // Manque = qtyZone - reserve
+      const manque = qtyZone - reserve;
+      // On achète le manque mais sans dépasser la limite
+      if (limite > 0) {
+        // Stock après remplacement = reserve - qtyZone
+        // On veut revenir à la limite
+        const stockApres = Math.max(0, reserve - qtyZone);
+        aAcheter = Math.max(0, limite - stockApres);
+      } else {
+        aAcheter = manque;
+      }
+    }
+
+    const total = aAcheter * prix;
+    budgetTotal += total;
+
+    resultats.push({ nom, qtyZone, reserve, limite, aAcheter, prix, total });
+  }
+
+  STATE.lastMaterielAnalyse = { items, resultats, budgetTotal, date: new Date().toLocaleDateString('fr-FR') };
+
+  // Render
+  const tbody = document.getElementById('materielTable');
+  tbody.innerHTML = resultats.map(r => `
+    <tr>
+      <td><b>${r.nom}</b></td>
+      <td><span class="badge badge-orange">${r.qtyZone}</span></td>
+      <td>${r.reserve}</td>
+      <td>${r.limite || '—'}</td>
+      <td>${r.aAcheter > 0 ? `<span class="badge badge-red">🛒 ${r.aAcheter}</span>` : `<span class="badge badge-green">✅ 0</span>`}</td>
+      <td>${r.prix ? r.prix + ' €' : '—'}</td>
+      <td><b>${r.total ? r.total.toLocaleString('fr-FR') + ' €' : '—'}</b></td>
+    </tr>
+  `).join('');
+
+  document.getElementById('materielBudgetTotal').textContent = budgetTotal.toLocaleString('fr-FR') + ' €';
+
+  const stats = document.getElementById('materielStats');
+  const aAcheterTotal = resultats.filter(r => r.aAcheter > 0);
+  stats.innerHTML = `
+    <div class="stat-box"><div class="stat-label">Items analysés</div><div class="stat-value">${resultats.length}</div></div>
+    <div class="stat-box orange"><div class="stat-label">Achats nécessaires</div><div class="stat-value">${aAcheterTotal.length}</div></div>
+    <div class="stat-box green"><div class="stat-label">Stock suffisant</div><div class="stat-value">${resultats.length - aAcheterTotal.length}</div></div>
+    <div class="stat-box gold"><div class="stat-label">Budget estimé</div><div class="stat-value" style="font-size:20px;">${budgetTotal.toLocaleString('fr-FR')} €</div></div>
+  `;
+
+  document.getElementById('materielResultats').style.display = 'block';
+  updateDashboard();
+  toast('Analyse terminée !', 'success');
+}
+
+// ======================================================
+// ÉQUIPEMENT
+// ======================================================
+function openModalNewEq() {
+  const sel = document.getElementById('newEqType');
+  sel.innerHTML = Object.keys(STATE.prixEquipement).map(n => `<option value="${n}">${n}</option>`).join('');
+  openModal('modalNewEq');
+}
+
+function openModalImportEq() {
+  const sel = document.getElementById('importEqSelect');
+  if (!STATE.equipements.length) {
+    toast('Créez d\'abord un équipement à suivre', 'error');
+    return;
+  }
+  sel.innerHTML = STATE.equipements.map(e => `<option value="${e.id}">${e.nom}</option>`).join('');
+  openModal('modalImportEq');
+}
+
+async function creerEquipement() {
+  const nom = document.getElementById('newEqNom').value.trim();
+  const type = document.getElementById('newEqType').value;
+  const emplacement = document.getElementById('newEqEmplacement').value.trim();
+  if (!nom) return toast('Donnez un nom à cet équipement', 'error');
+
+  const eq = {
+    nom,
+    type,
+    emplacement,
+    usure: 0,
+    entretiens: 0,
+    entretiensMax: 25,
+    atelier: 0,
+    atelierMax: 2,
+    historique: [],
+    etat: 'Disponible',
+  };
+
+  if (dbReady) {
+    const id = await dbAdd('equipements', eq);
+    eq.id = id;
+  } else {
+    eq.id = Date.now().toString();
+  }
+
+  STATE.equipements.push(eq);
+  renderEquipements();
+  closeModal('modalNewEq');
+  toast(`Équipement "${nom}" créé !`, 'success');
+  updateDashboard();
+}
+
+async function importerDonneesEq() {
+  const id = document.getElementById('importEqSelect').value;
+  const texte = document.getElementById('importEqData').value.trim();
+  if (!texte) return toast('Collez les données depuis monpompier.com', 'error');
+
+  const data = parseFicheEquipement(texte);
+  if (data.usure === undefined) return toast('Impossible de lire l\'usure dans les données', 'error');
+
+  const eq = STATE.equipements.find(e => e.id === id);
+  if (!eq) return toast('Équipement introuvable', 'error');
+
+  const entry = {
+    date: new Date().toISOString(),
+    usure: data.usure,
+    entretiens: data.entretiens ?? eq.entretiens,
+    atelier: data.atelier ?? eq.atelier,
+    etat: data.etat || eq.etat
+  };
+
+  eq.usure = data.usure;
+  if (data.entretiens !== undefined) eq.entretiens = data.entretiens;
+  if (data.atelier !== undefined) eq.atelier = data.atelier;
+  if (data.etat) eq.etat = data.etat;
+  if (!eq.historique) eq.historique = [];
+  eq.historique.push(entry);
+
+  if (dbReady) {
+    await dbUpdate('equipements', id, {
+      usure: eq.usure,
+      entretiens: eq.entretiens,
+      atelier: eq.atelier,
+      etat: eq.etat,
+      historique: eq.historique
+    });
+  }
+
+  renderEquipements();
+  closeModal('modalImportEq');
+  document.getElementById('importEqData').value = '';
+  toast(`Données importées pour "${eq.nom}" — Usure : ${data.usure}%`, 'success');
+  updateDashboard();
+}
+
+async function supprimerEquipement(id) {
+  if (!confirm('Supprimer cet équipement et tout son historique ?')) return;
+  STATE.equipements = STATE.equipements.filter(e => e.id !== id);
+  if (dbReady) await dbDelete('equipements', id);
+  renderEquipements();
+  updateDashboard();
+  toast('Équipement supprimé', 'success');
+}
+
+function voirDetailEq(id) {
+  const eq = STATE.equipements.find(e => e.id === id);
+  if (!eq) return;
+  document.getElementById('detailEqTitre').textContent = eq.nom;
+
+  const hist = (eq.historique || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+  const stats = calculerStatsEq(hist);
+
+  let chartHtml = '';
+  if (hist.length > 1) {
+    const max = 100;
+    chartHtml = `<div class="mini-chart">` +
+      hist.slice(-14).map(h => {
+        const pct = h.usure;
+        const col = pct >= 90 ? '#E74C3C' : pct >= 60 ? '#E67E22' : '#27AE60';
+        return `<div class="chart-bar" data-tooltip="${new Date(h.date).toLocaleDateString('fr-FR')}: ${pct}%" style="height:${pct}%;background:${col};"></div>`;
+      }).join('') +
+      `</div><p style="font-size:10px;color:var(--gris-texte);margin-top:4px;">Évolution des 14 dernières entrées</p>`;
+  }
+
+  let predHtml = '';
+  if (stats.moyParJour > 0) {
+    const joursReforme = Math.ceil((100 - eq.usure) / stats.moyParJour);
+    const joursAchat = eq.usure < 60 ? Math.ceil((60 - eq.usure) / stats.moyParJour) : 0;
+    const dateReforme = new Date();
+    dateReforme.setDate(dateReforme.getDate() + joursReforme);
+    predHtml = `
+      <div class="eq-prediction">
+        📈 Vitesse moyenne : <b>${stats.moyParJour.toFixed(2)}%/jour</b><br>
+        ${joursAchat > 0 ? `🛒 Palier achat (60%) dans <b>~${joursAchat} jours</b><br>` : ''}
+        🔴 Réforme estimée (100%) : <b>~${joursReforme} jours</b> (${dateReforme.toLocaleDateString('fr-FR')})
+      </div>`;
+  }
+
+  const histRows = hist.slice().reverse().slice(0, 20).map(h => `
+    <tr>
+      <td>${new Date(h.date).toLocaleDateString('fr-FR')} ${new Date(h.date).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'})}</td>
+      <td><b>${h.usure}%</b></td>
+      <td>${h.entretiens ?? '—'}</td>
+      <td>${h.atelier ?? '—'}</td>
+    </tr>`).join('');
+
+  document.getElementById('detailEqContent').innerHTML = `
+    <div class="grid-2" style="margin-bottom:16px;">
+      <div class="eq-stat-item"><div class="eq-stat-label">Usure actuelle</div><div class="eq-stat-val">${eq.usure}%</div></div>
+      <div class="eq-stat-item"><div class="eq-stat-label">Entretiens</div><div class="eq-stat-val">${eq.entretiens}/${eq.entretiensMax || 25}</div></div>
+      <div class="eq-stat-item"><div class="eq-stat-label">Atelier</div><div class="eq-stat-val">${eq.atelier}/${eq.atelierMax || 2}</div></div>
+      <div class="eq-stat-item"><div class="eq-stat-label">Relevés</div><div class="eq-stat-val">${hist.length}</div></div>
+    </div>
+    ${chartHtml}
+    ${predHtml}
+    <div class="sep"></div>
+    <div style="font-family:'Barlow Condensed';font-size:13px;letter-spacing:1px;color:var(--gris-texte);text-transform:uppercase;margin-bottom:8px;">Historique</div>
+    ${hist.length > 0 ? `
+    <div class="table-wrap" style="max-height:200px;overflow-y:auto;">
+      <table><thead><tr><th>Date</th><th>Usure</th><th>Entretiens</th><th>Atelier</th></tr></thead>
+      <tbody>${histRows}</tbody></table>
+    </div>` : '<div class="empty-state" style="padding:20px;"><p>Aucun historique</p></div>'}
+  `;
+  openModal('modalDetailEq');
+}
+
+function calculerStatsEq(hist) {
+  if (hist.length < 2) return { moyParJour: 0 };
+  const deltas = [];
+  for (let i = 1; i < hist.length; i++) {
+    const jours = (new Date(hist[i].date) - new Date(hist[i-1].date)) / 86400000;
+    if (jours > 0) {
+      const delta = hist[i].usure - hist[i-1].usure;
+      if (delta >= 0) deltas.push(delta / jours);
+    }
+  }
+  if (!deltas.length) return { moyParJour: 0 };
+  return { moyParJour: deltas.reduce((a, b) => a + b, 0) / deltas.length };
+}
+
+function usureColor(u) {
+  if (u >= 90) return 'critical';
+  if (u >= 60) return 'high';
+  if (u >= 40) return 'med';
+  return 'low';
+}
+
+function renderEquipements() {
+  const grid = document.getElementById('equipementGrid');
+  if (!STATE.equipements.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🪖</div><p>Aucun équipement suivi.<br>Cliquez sur "Nouvel équipement" pour commencer.</p></div>`;
+    return;
+  }
+  grid.innerHTML = STATE.equipements.map(eq => {
+    const uc = usureColor(eq.usure);
+    const hist = (eq.historique || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    const stats = calculerStatsEq(hist);
+    const alertClass = eq.usure >= 90 ? 'alert-eq' : '';
+    const badge = eq.usure >= 90 ? '<span class="badge badge-red">⚠️ Réforme</span>' :
+                  eq.usure >= 60 ? '<span class="badge badge-orange">🛒 Achat</span>' :
+                  eq.usure >= 40 ? '<span class="badge badge-orange">👀 Surveiller</span>' :
+                  '<span class="badge badge-green">✅ OK</span>';
+    let predText = '';
+    if (stats.moyParJour > 0) {
+      const j = Math.ceil((100 - eq.usure) / stats.moyParJour);
+      predText = `<div class="eq-prediction">🔴 Réforme estimée dans ~${j} jours (${stats.moyParJour.toFixed(2)}%/j)</div>`;
+    }
+    return `<div class="eq-card ${alertClass}">
+      <div class="eq-card-header">
+        <div>
+          <div class="eq-name">${eq.nom}</div>
+          <div class="eq-meta">${eq.type} · ${eq.emplacement || '—'}</div>
+        </div>
+        ${badge}
+      </div>
+      <div class="usure-bar"><div class="usure-fill ${uc}" style="width:${eq.usure}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gris-texte);margin-bottom:8px;">
+        <span>Usure : <b style="color:var(--blanc)">${eq.usure}%</b></span>
+        <span>${hist.length} relevé(s)</span>
+      </div>
+      <div class="eq-stats">
+        <div class="eq-stat-item"><div class="eq-stat-label">Entretiens</div><div class="eq-stat-val">${eq.entretiens}/${eq.entretiensMax || 25}</div></div>
+        <div class="eq-stat-item"><div class="eq-stat-label">Atelier</div><div class="eq-stat-val">${eq.atelier}/${eq.atelierMax || 2}</div></div>
+      </div>
+      ${predText}
+      <div class="eq-actions">
+        <button class="btn btn-secondary btn-sm" onclick="voirDetailEq('${eq.id}')">📊 Détail</button>
+        <button class="btn btn-secondary btn-sm" onclick="openModalImportEqFor('${eq.id}')">📥 Importer</button>
+        <button class="btn btn-danger btn-sm" onclick="supprimerEquipement('${eq.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openModalImportEqFor(id) {
+  const sel = document.getElementById('importEqSelect');
+  sel.innerHTML = STATE.equipements.map(e => `<option value="${e.id}" ${e.id === id ? 'selected' : ''}>${e.nom}</option>`).join('');
+  openModal('modalImportEq');
+}
+
+// ======================================================
+// CONFIG
+// ======================================================
+function renderConfig() {
+  renderConfigSection('configMaterielList', STATE.prixMateriel, 'materiel');
+  renderConfigSection('configEquipementList', STATE.prixEquipement, 'equipement');
+}
+
+function renderConfigSection(containerId, data, type) {
+  const el = document.getElementById(containerId);
+  const sorted = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;">` +
+    sorted.map(([nom, prix]) => `
+      <div style="display:flex;align-items:center;gap:8px;background:var(--gris-moyen);border-radius:6px;padding:8px 12px;">
+        <span style="flex:1;font-size:12px;">${nom}</span>
+        <input type="number" data-nom="${nom}" data-type="${type}" value="${prix}" min="0" style="width:80px;text-align:right;" onchange="updatePrix(this)">
+        <span style="font-size:11px;color:var(--gris-texte);">€</span>
+      </div>`).join('') +
+  `</div>`;
+}
+
+function updatePrix(input) {
+  const nom = input.dataset.nom;
+  const type = input.dataset.type;
+  const val = parseInt(input.value) || 0;
+  if (type === 'materiel') STATE.prixMateriel[nom] = val;
+  else STATE.prixEquipement[nom] = val;
+}
+
+async function sauvegarderPrixMateriel() {
+  if (dbReady) await dbSet('config/prix', { materiel: STATE.prixMateriel });
+  toast('Prix matériel sauvegardés ✅', 'success');
+}
+
+async function sauvegarderPrixEquipement() {
+  if (dbReady) await dbSet('config/prix', { equipement: STATE.prixEquipement });
+  toast('Prix équipement sauvegardés ✅', 'success');
+}
+
+// ======================================================
+// DASHBOARD
+// ======================================================
+function updateDashboard() {
+  const eqs = STATE.equipements;
+  const total = eqs.length;
+  const achat = eqs.filter(e => e.usure >= 40 && e.usure < 60).length;
+  const reforme = eqs.filter(e => e.usure >= 90).length;
+
+  document.getElementById('statEqTotal').textContent = total;
+  document.getElementById('statEqAchat').textContent = achat;
+  document.getElementById('statEqReforme').textContent = reforme;
+
+  const budget = STATE.lastMaterielAnalyse?.budgetTotal || 0;
+  document.getElementById('statBudget').textContent = budget ? budget.toLocaleString('fr-FR') + ' €' : '—';
+
+  // Critiques
+  const critEl = document.getElementById('dashEqCritique');
+  const critiques = eqs.filter(e => e.usure >= 90);
+  if (critiques.length) {
+    critEl.innerHTML = critiques.map(e => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--gris-moyen);">
+        <div><b>${e.nom}</b> <span style="font-size:11px;color:var(--gris-texte)">${e.type}</span></div>
+        <span class="badge badge-red">${e.usure}%</span>
+      </div>`).join('');
+  } else {
+    critEl.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>Aucun équipement critique</p></div>';
+  }
+
+  // Warnings
+  const warnEl = document.getElementById('dashEqWarning');
+  const warnings = eqs.filter(e => e.usure >= 40 && e.usure < 90).sort((a, b) => b.usure - a.usure);
+  if (warnings.length) {
+    warnEl.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Équipement</th><th>Type</th><th>Usure</th><th>Vitesse</th><th>Réforme estimée</th></tr></thead><tbody>` +
+      warnings.map(e => {
+        const hist = (e.historique || []).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+        const stats = calculerStatsEq(hist);
+        const pred = stats.moyParJour > 0 ? `~${Math.ceil((100 - e.usure) / stats.moyParJour)} j` : '—';
+        const badge = e.usure >= 60 ? 'badge-orange' : 'badge-gray';
+        return `<tr>
+          <td><b>${e.nom}</b></td><td>${e.type}</td>
+          <td><span class="badge ${badge}">${e.usure}%</span></td>
+          <td>${stats.moyParJour > 0 ? stats.moyParJour.toFixed(2) + '%/j' : '—'}</td>
+          <td>${pred}</td>
+        </tr>`;
+      }).join('') +
+      `</tbody></table></div>`;
+  } else {
+    warnEl.innerHTML = '<div class="empty-state"><div class="icon">🎯</div><p>Aucun équipement en zone d\'alerte</p></div>';
+  }
+
+  // Matériel achat
+  const matEl = document.getElementById('dashMaterielAchat');
+  if (STATE.lastMaterielAnalyse) {
+    const aAcheter = STATE.lastMaterielAnalyse.resultats.filter(r => r.aAcheter > 0);
+    if (aAcheter.length) {
+      matEl.innerHTML = `<p style="font-size:11px;color:var(--gris-texte);margin-bottom:8px;">Analyse du ${STATE.lastMaterielAnalyse.date}</p>` +
+        aAcheter.map(r => `
+          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--gris-moyen);font-size:13px;">
+            <span><b>${r.nom}</b></span>
+            <span><span class="badge badge-red">🛒 ${r.aAcheter}</span> <b style="color:var(--or)">${r.total.toLocaleString('fr-FR')} €</b></span>
+          </div>`).join('') +
+        `<div style="text-align:right;margin-top:10px;"><span class="stat-label">Budget total</span><div class="price-tag">${STATE.lastMaterielAnalyse.budgetTotal.toLocaleString('fr-FR')} €</div></div>`;
+    } else {
+      matEl.innerHTML = '<div class="alert-banner alert-info">✅ Aucun achat nécessaire lors de la dernière analyse</div>';
+    }
+  }
+}
+</script>
+</body>
+</html>
