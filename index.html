@@ -625,7 +625,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.7</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.9</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -793,9 +793,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <div id="page-equipement" class="page">
   <div class="section-title">🪖 Suivi équipement</div>
 
-  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
-    <button class="btn btn-primary" onclick="openModalNewEq()">➕ Nouvel équipement</button>
-    <button class="btn btn-secondary" onclick="openModalImportEq()">📥 Importer données</button>
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;justify-content:space-between;align-items:center;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="openModalNewEq()">➕ Nouvel équipement</button>
+      <button class="btn btn-secondary" onclick="openModalImportEq()">📥 Importer données</button>
+    </div>
+    <button class="btn btn-secondary" onclick="ouvrirExport()">📤 Exporter message</button>
   </div>
 
   <div id="equipementGrid" class="grid-3">
@@ -1393,16 +1396,21 @@ function recalcBudget() {
 }
 
 function ouvrirExport() {
+  // --- MATÉRIEL ---
   const res = STATE.lastMaterielAnalyse?.resultats || [];
   const aAcheter = res.filter(r => r.aAcheter > 0);
   const budgetMat = aAcheter.reduce((s, r) => s + (r.total || 0), 0);
 
-  // Équipements critiques (>90%) depuis STATE
-  const eqCritiques = STATE.equipements.filter(e => e.usure >= 60);
-  const budgetEq = eqCritiques.reduce((s, e) => {
-    const prix = STATE.prixEquipement[e.type] || 0;
-    return s + prix;
-  }, 0);
+  // --- ÉQUIPEMENT : usure >= 60%, groupés par type ---
+  const eqARemplacer = STATE.equipements.filter(e => e.usure >= 60);
+  // Grouper par type pour "2 Compresseur" au lieu de "1 Compresseur #1 + 1 Compresseur #2"
+  const eqGroupes = {};
+  eqARemplacer.forEach(e => {
+    if (!eqGroupes[e.type]) eqGroupes[e.type] = { qty: 0, prix: STATE.prixEquipement[e.type] || 0, usures: [] };
+    eqGroupes[e.type].qty++;
+    eqGroupes[e.type].usures.push(e.usure);
+  });
+  const budgetEq = Object.values(eqGroupes).reduce((s, g) => s + g.qty * g.prix, 0);
 
   let msg = 'Bonjour,\n\n';
 
@@ -1412,13 +1420,17 @@ function ouvrirExport() {
     msg += '\n';
   }
 
-  if (eqCritiques.length > 0) {
+  if (Object.keys(eqGroupes).length > 0) {
     msg += `J'ai besoin d'un budget de ${budgetEq.toLocaleString('fr-FR')} € en équipement pour :\n`;
-    eqCritiques.forEach(e => {
-      const prix = STATE.prixEquipement[e.type] || 0;
-      msg += `* 1 ${e.type} (usure ${e.usure}%)\n`;
+    Object.entries(eqGroupes).forEach(([type, g]) => {
+      const usureMax = Math.max(...g.usures);
+      msg += `* ${g.qty} ${type} (usure ${usureMax}%${g.prix ? ' — ' + (g.qty * g.prix).toLocaleString('fr-FR') + ' €' : ''})\n`;
     });
     msg += '\n';
+  }
+
+  if (aAcheter.length === 0 && Object.keys(eqGroupes).length === 0) {
+    msg += 'Aucun achat prévu pour le moment.\n\n';
   }
 
   msg += 'Merci,\nCordialement';
