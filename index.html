@@ -693,22 +693,22 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <div class="grid-2">
     <div class="card">
       <div class="card-title"><span class="icon">📥</span> Import stock réel (réserve)</div>
-      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez-collez la liste depuis monpompier.com. Format : nom répété 2 fois + "Détails"</p>
+      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:10px;">Format : nom répété 2 fois + "Détails"</p>
       <div class="form-group">
-        <textarea id="stockRéelInput" placeholder="ARICO&#10;ARICO&#10;Détails&#10;ARICO&#10;ARICO&#10;Détails&#10;Extincteur à poudre (9kg)&#10;Extincteur à poudre (9kg)&#10;Détails"></textarea>
+        <textarea id="stockRéelInput" style="min-height:90px;max-height:120px;" placeholder="ARICO&#10;ARICO&#10;Détails&#10;ARICO&#10;ARICO&#10;Détails"></textarea>
       </div>
-      <button class="btn btn-primary" onclick="importStockReel()">📥 Importer le stock réel</button>
-      <div id="stockReelPreview" style="margin-top:12px;"></div>
+      <button class="btn btn-primary" onclick="importStockReel()">📥 Importer</button>
+      <div id="stockReelPreview" style="margin-top:8px;"></div>
     </div>
 
     <div class="card">
       <div class="card-title"><span class="icon">🏛️</span> Import limites autorisées</div>
-      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:12px;">Copiez-collez le tableau des limites depuis monpompier.com.</p>
+      <p style="color:var(--gris-texte);font-size:12px;margin-bottom:10px;">Copiez-collez le tableau des limites depuis monpompier.com.</p>
       <div class="form-group">
-        <textarea id="stockLimiteInput" placeholder="Produit	Prix	Stock autorisé par le groupement centre	Stock voulu	Mon stock	A commander&#10;ARICOARICO	350 €	5	5			0€&#10;BâcheBâche	7 €	5	2			0€"></textarea>
+        <textarea id="stockLimiteInput" style="min-height:90px;max-height:120px;" placeholder="ARICOARICO	350 €	5	5			0€&#10;BâcheBâche	7 €	5	2			0€"></textarea>
       </div>
-      <button class="btn btn-primary" onclick="importStockLimites()">📥 Importer les limites</button>
-      <div id="stockLimitesPreview" style="margin-top:12px;"></div>
+      <button class="btn btn-primary" onclick="importStockLimites()">📥 Importer</button>
+      <div id="stockLimitesPreview" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -1177,8 +1177,7 @@ async function importStockReel() {
   await sauvegarderStock();
   renderStockTable();
   const total = Object.values(items).reduce((a, b) => a + b, 0);
-  const preview = Object.entries(items).map(([n, q]) => `<span style="color:var(--blanc)">${n}</span>: <b>${q}</b>`).join(' · ');
-  document.getElementById('stockReelPreview').innerHTML = `<div class="alert-banner alert-info">✅ ${Object.keys(items).length} types importés (${total} unités) — ${preview}</div>`;
+  document.getElementById('stockReelPreview').innerHTML = `<div class="alert-banner alert-info"><b>✅ ${Object.keys(items).length} types — ${total} unités importées</b></div>`;
   toast(`Stock réel importé : ${Object.keys(items).length} types`, 'success');
 }
 
@@ -1192,8 +1191,7 @@ async function importStockLimites() {
   }
   await sauvegarderStock();
   renderStockTable();
-  const preview = Object.entries(limites).map(([n, d]) => `<span style="color:var(--blanc)">${n}</span>: max <b>${d.limite}</b>`).join(' · ');
-  document.getElementById('stockLimitesPreview').innerHTML = `<div class="alert-banner alert-info">✅ ${Object.keys(limites).length} limites importées — ${preview}</div>`;
+  document.getElementById('stockLimitesPreview').innerHTML = `<div class="alert-banner alert-info"><b>✅ ${Object.keys(limites).length} limites importées</b></div>`;
   toast(`Limites importées : ${Object.keys(limites).length} articles`, 'success');
 }
 
