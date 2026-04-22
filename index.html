@@ -625,7 +625,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.2</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.3</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -821,22 +821,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <button class="modal-close" onclick="closeModal('modalNewEq')">✕</button>
     </div>
     <div class="form-group">
-      <label>Type d'équipement</label>
-      <select id="newEqType"></select>
-    </div>
-    <div class="form-group">
-      <label>Numéro (optionnel)</label>
-      <input type="number" id="newEqNumero" placeholder="Laisser vide = automatique" min="1">
-    </div>
-    <div class="form-group">
-      <label>Emplacement</label>
-      <input type="text" id="newEqEmplacement" placeholder="Ex: Casernement">
-    </div>
-    <div class="sep"></div>
-    <div class="form-group">
-      <label>📥 Données initiales (optionnel)</label>
-      <p style="color:var(--gris-texte);font-size:11px;margin-bottom:6px;">Collez directement les données depuis monpompier.com pour initialiser l'usure.</p>
-      <textarea id="newEqData" style="min-height:90px;max-height:140px;" placeholder="Objet : Compresseur&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 400 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea>
+      <label>Données depuis monpompier.com *</label>
+      <p style="color:var(--gris-texte);font-size:11px;margin-bottom:6px;">Le type, l'emplacement et l'usure sont extraits automatiquement.</p>
+      <textarea id="newEqData" style="min-height:130px;max-height:200px;" placeholder="Objet : Imprimante&#10;Etat : Disponible&#10;Emplacement : Casernement&#10;Prix catalogue : 119 €&#10;Usure : 91 %&#10;Nombre d'entretiens : 25 / 25&#10;Passages à l'atelier : 2 / 2"></textarea>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('modalNewEq')">Annuler</button>
@@ -1309,8 +1296,7 @@ function analyserMateriel() {
 // ÉQUIPEMENT
 // ======================================================
 function openModalNewEq() {
-  const sel = document.getElementById('newEqType');
-  sel.innerHTML = Object.keys(STATE.prixEquipement).map(n => `<option value="${n}">${n}</option>`).join('');
+  document.getElementById('newEqData').value = '';
   openModal('modalNewEq');
 }
 
@@ -1325,28 +1311,27 @@ function openModalImportEq() {
 }
 
 async function creerEquipement() {
-  const type = document.getElementById('newEqType').value;
-  const emplacement = document.getElementById('newEqEmplacement').value.trim();
-  const numeroInput = document.getElementById('newEqNumero').value.trim();
   const dataTexte = document.getElementById('newEqData').value.trim();
+  if (!dataTexte) return toast('Collez les données depuis monpompier.com', 'error');
 
-  // Calcul du prochain numéro auto pour ce type
+  const initData = parseFicheEquipement(dataTexte);
+  if (!initData.objet) return toast('Impossible de lire le champ "Objet" dans les données', 'error');
+
+  const type = initData.objet;
   const existants = STATE.equipements.filter(e => e.type === type).map(e => e.numero || 0);
-  const numero = numeroInput ? parseInt(numeroInput) : (existants.length ? Math.max(...existants) + 1 : 1);
+  const numero = existants.length ? Math.max(...existants) + 1 : 1;
   const nom = `${type} #${numero}`;
 
-  // Parse données initiales si fournies
-  let initData = {};
-  if (dataTexte) initData = parseFicheEquipement(dataTexte);
-
   const now = new Date().toISOString();
-  const historique = initData.usure !== undefined ? [{ date: now, usure: initData.usure, entretiens: initData.entretiens ?? 0, atelier: initData.atelier ?? 0, etat: initData.etat || 'Disponible' }] : [];
+  const historique = initData.usure !== undefined
+    ? [{ date: now, usure: initData.usure, entretiens: initData.entretiens ?? 0, atelier: initData.atelier ?? 0, etat: initData.etat || 'Disponible' }]
+    : [];
 
   const eq = {
     nom,
     numero,
     type,
-    emplacement: emplacement || initData.emplacement || '',
+    emplacement: initData.emplacement || '',
     usure: initData.usure ?? 0,
     entretiens: initData.entretiens ?? 0,
     entretiensMax: initData.entretiensMax ?? 25,
@@ -1367,10 +1352,7 @@ async function creerEquipement() {
   renderEquipements();
   closeModal('modalNewEq');
   document.getElementById('newEqData').value = '';
-  document.getElementById('newEqNumero').value = '';
-  document.getElementById('newEqEmplacement').value = '';
-  const msg = initData.usure !== undefined ? `Équipement "${nom}" créé — Usure initiale : ${initData.usure}%` : `Équipement "${nom}" créé !`;
-  toast(msg, 'success');
+  toast(`"${nom}" créé — Usure : ${eq.usure}% · ${eq.emplacement}`, 'success');
   updateDashboard();
 }
 
