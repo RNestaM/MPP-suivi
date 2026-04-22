@@ -625,7 +625,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.9</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.12</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -1415,18 +1415,19 @@ function ouvrirExport() {
   let msg = 'Bonjour,\n\n';
 
   if (aAcheter.length > 0) {
-    msg += `J'ai besoin d'un budget de ${budgetMat.toLocaleString('fr-FR')} € en matériel pour :\n`;
-    aAcheter.forEach(r => { msg += `* ${r.aAcheter} ${r.nom}\n`; });
-    msg += '\n';
+    msg += `J'ai besoin d'un budget de ${budgetMat.toLocaleString('fr-FR')} € en [b]matériel[/b] pour :\n`;
+    msg += '[liste]';
+    aAcheter.forEach(r => { msg += `[*] ${r.aAcheter} ${r.nom} (${r.aAcheter > 1 ? r.prix.toLocaleString('fr-FR') + ' € x ' + r.aAcheter + ' = ' + r.total.toLocaleString('fr-FR') + ' €' : r.prix.toLocaleString('fr-FR') + ' €'})\n`; });
+    msg += '[/liste]\n';
   }
 
   if (Object.keys(eqGroupes).length > 0) {
-    msg += `J'ai besoin d'un budget de ${budgetEq.toLocaleString('fr-FR')} € en équipement pour :\n`;
+    msg += `J'ai besoin d'un budget de ${budgetEq.toLocaleString('fr-FR')} € en [b]équipement[/b] pour :\n`;
+    msg += '[liste]';
     Object.entries(eqGroupes).forEach(([type, g]) => {
-      const usureMax = Math.max(...g.usures);
-      msg += `* ${g.qty} ${type} (usure ${usureMax}%${g.prix ? ' — ' + (g.qty * g.prix).toLocaleString('fr-FR') + ' €' : ''})\n`;
+      msg += `[*] ${g.qty} ${type} (${g.qty > 1 ? g.prix.toLocaleString('fr-FR') + ' € x ' + g.qty + ' = ' + (g.qty * g.prix).toLocaleString('fr-FR') + ' €' : g.prix.toLocaleString('fr-FR') + ' €'})\n`;
     });
-    msg += '\n';
+    msg += '[/liste]\n';
   }
 
   if (aAcheter.length === 0 && Object.keys(eqGroupes).length === 0) {
