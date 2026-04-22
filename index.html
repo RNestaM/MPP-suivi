@@ -625,7 +625,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.3</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.5</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -714,7 +714,14 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 
   <div class="card">
-    <div class="card-title">📊 Stock actuel</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="card-title" style="margin-bottom:0;">📊 Stock actuel</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-danger btn-sm" onclick="viderStock('reserve')">🗑️ Vider réserve</button>
+        <button class="btn btn-danger btn-sm" onclick="viderStock('limites')">🗑️ Vider limites</button>
+        <button class="btn btn-danger btn-sm" onclick="viderStock('tout')">🗑️ Tout vider</button>
+      </div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1074,26 +1081,43 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ======================================================
 // PARSERS
 // ======================================================
+function normalizeNom(str) {
+  // Normalise accents, casse et espaces pour comparaison/clé unique
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function canonicalNom(str) {
+  // Retourne le nom "propre" (trim uniquement, garde accents et casse originale)
+  return str.trim();
+}
+
 function parseListeSimple(texte) {
   // Format: nom\nnom\nDétails
   const lignes = texte.split('\n').map(l => l.trim()).filter(l => l);
-  const items = {};
+  const items = {};      // normalized key -> qty
+  const canonical = {}; // normalized key -> original name
   let i = 0;
   while (i < lignes.length) {
     const l = lignes[i];
-    if (l.toLowerCase() === 'détails' || l.toLowerCase() === 'details') { i++; continue; }
-    // Vérifier si la ligne suivante est la même (doublon)
-    if (i + 1 < lignes.length && lignes[i+1] === l) {
-      items[l] = (items[l] || 0) + 1;
+    if (normalizeNom(l) === 'details' || normalizeNom(l) === 'detail') { i++; continue; }
+    const key = normalizeNom(l);
+    if (!canonical[key]) canonical[key] = canonicalNom(l);
+    // Vérifier si la ligne suivante est la même (doublon, tolérant aux accents)
+    if (i + 1 < lignes.length && normalizeNom(lignes[i+1]) === key) {
+      items[key] = (items[key] || 0) + 1;
       i += 2;
-      // Sauter "Détails"
-      if (i < lignes.length && lignes[i].toLowerCase().startsWith('détail')) i++;
+      if (i < lignes.length && normalizeNom(lignes[i]).startsWith('detail')) i++;
     } else {
-      items[l] = (items[l] || 0) + 1;
+      items[key] = (items[key] || 0) + 1;
       i++;
     }
   }
-  return items;
+  // Return with canonical names as keys
+  const result = {};
+  for (const [key, qty] of Object.entries(items)) {
+    result[canonical[key]] = qty;
+  }
+  return result;
 }
 
 function parseLimites(texte) {
@@ -1101,15 +1125,11 @@ function parseLimites(texte) {
   const lignes = texte.split('\n').map(l => l.trim()).filter(l => l);
   const result = {};
   for (const ligne of lignes) {
-    // Ignorer l'en-tête
     if (ligne.startsWith('Produit') || ligne.startsWith('Non modifiable')) continue;
     const cols = ligne.split('\t');
     if (cols.length < 3) continue;
-    // Colonne 0: NomNom (doublon collé)
     let nom = cols[0].trim();
-    // Dédupliquer le nom (ex: "ARICOARICO" -> "ARICO")
     nom = deduplicateNom(nom);
-    // Colonne 2: stock autorisé, colonne 3: stock voulu (on prend le plus petit = limite réelle)
     const autorise = parseInt(cols[2]) || 0;
     const voulu = parseInt(cols[3]) || 0;
     const limite = Math.min(autorise, voulu || autorise);
@@ -1159,14 +1179,24 @@ function parseFicheEquipement(texte) {
 // ======================================================
 // STOCK
 // ======================================================
+function findStockKey(nom) {
+  // Cherche une clé existante dans STATE.stock qui correspond normalisée
+  const normNom = normalizeNom(nom);
+  for (const key of Object.keys(STATE.stock)) {
+    if (normalizeNom(key) === normNom) return key;
+  }
+  return null;
+}
+
 async function importStockReel() {
   const texte = document.getElementById('stockRéelInput').value.trim();
   if (!texte) return toast('Collez des données à importer', 'error');
   const items = parseListeSimple(texte);
   // Fusionner avec l'état actuel
   for (const [nom, qty] of Object.entries(items)) {
-    if (!STATE.stock[nom]) STATE.stock[nom] = { reserve: 0, limite: 0 };
-    STATE.stock[nom].reserve = qty;
+    const key = findStockKey(nom) || nom;
+    if (!STATE.stock[key]) STATE.stock[key] = { reserve: 0, limite: 0 };
+    STATE.stock[key].reserve = qty;
   }
   await sauvegarderStock();
   renderStockTable();
@@ -1180,13 +1210,29 @@ async function importStockLimites() {
   if (!texte) return toast('Collez des données à importer', 'error');
   const limites = parseLimites(texte);
   for (const [nom, data] of Object.entries(limites)) {
-    if (!STATE.stock[nom]) STATE.stock[nom] = { reserve: 0, limite: 0 };
-    STATE.stock[nom].limite = data.limite;
+    const key = findStockKey(nom) || nom;
+    if (!STATE.stock[key]) STATE.stock[key] = { reserve: 0, limite: 0 };
+    STATE.stock[key].limite = data.limite;
   }
   await sauvegarderStock();
   renderStockTable();
   document.getElementById('stockLimitesPreview').innerHTML = `<div class="alert-banner alert-info"><b>✅ ${Object.keys(limites).length} limites importées</b></div>`;
   toast(`Limites importées : ${Object.keys(limites).length} articles`, 'success');
+}
+
+async function viderStock(mode) {
+  const labels = { reserve: 'les réserves', limites: 'les limites', tout: 'tout le stock' };
+  if (!confirm(`Remettre à zéro ${labels[mode]} ?`)) return;
+  if (mode === 'reserve') {
+    for (const key of Object.keys(STATE.stock)) STATE.stock[key].reserve = 0;
+  } else if (mode === 'limites') {
+    for (const key of Object.keys(STATE.stock)) STATE.stock[key].limite = 0;
+  } else {
+    STATE.stock = {};
+  }
+  await sauvegarderStock();
+  renderStockTable();
+  toast(`Stock remis à zéro (${labels[mode]})`, 'success');
 }
 
 async function sauvegarderStock() {
