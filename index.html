@@ -644,7 +644,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <div class="logo-text">Mon<span>Pompier</span> — Suivi</div>
   </div>
   <div class="firebase-status">
-    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.13</span>
+    <span id="github-version" style="color:var(--gris-texte);font-size:11px;margin-right:10px;border:1px solid var(--gris-clair);border-radius:4px;padding:2px 7px;">V1.14</span>
     <div class="status-dot" id="statusDot"></div>
     <span id="statusText">Connexion...</span>
   </div>
@@ -1221,6 +1221,17 @@ function parseFicheEquipement(texte) {
 // ======================================================
 // STOCK
 // ======================================================
+function findPrix(nom, catalogue) {
+  // Recherche exacte d'abord
+  if (catalogue[nom] !== undefined) return catalogue[nom];
+  // Sinon recherche normalisée
+  const normNom = normalizeNom(nom);
+  for (const [key, val] of Object.entries(catalogue)) {
+    if (normalizeNom(key) === normNom) return val;
+  }
+  return 0;
+}
+
 function findStockKey(nom) {
   // Cherche une clé existante dans STATE.stock qui correspond normalisée
   const normNom = normalizeNom(nom);
@@ -1290,7 +1301,7 @@ function renderStockTable() {
     return;
   }
   tbody.innerHTML = entries.map(([nom, data]) => {
-    const prix = STATE.prixMateriel[nom] || STATE.prixEquipement[nom] || 0;
+    const prix = findPrix(nom, STATE.prixMateriel) || findPrix(nom, STATE.prixEquipement) || 0;
     const reserve = data.reserve || 0;
     const limite = data.limite || 0;
     let badge = '';
@@ -1319,7 +1330,7 @@ function analyserMateriel() {
   let budgetTotal = 0;
 
   for (const [nom, qtyZone] of Object.entries(items)) {
-    const prix = STATE.prixMateriel[nom] || 0;
+    const prix = findPrix(nom, STATE.prixMateriel) || 0;
     const reserve = STATE.stock[nom]?.reserve || 0;
     const limite = STATE.stock[nom]?.limite || 0;
 
